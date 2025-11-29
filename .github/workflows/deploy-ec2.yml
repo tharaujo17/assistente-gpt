@@ -32,6 +32,10 @@ jobs:
           echo "BACKEND_IMAGE=${{ steps.login-ecr.outputs.registry }}/assistente-gpt-backend:latest" >> $GITHUB_OUTPUT
           echo "FRONTEND_IMAGE=${{ steps.login-ecr.outputs.registry }}/assistente-gpt-frontend:latest" >> $GITHUB_OUTPUT
 
+      - name: Create frontend env file
+        run: |
+          echo "VITE_API_URL=http://${{ secrets.EC2_HOST }}:8000" > frontend/.env.production
+          
       - name: Build Docker images
         run: |
           docker build -t ${{ steps.vars.outputs.BACKEND_IMAGE }} ./backend
@@ -42,9 +46,6 @@ jobs:
           docker push ${{ steps.vars.outputs.BACKEND_IMAGE }}
           docker push ${{ steps.vars.outputs.FRONTEND_IMAGE }}
 
-      - name: Create frontend env file
-        run: |
-          echo "VITE_API_URL=http://${{ secrets.EC2_HOST }}:8000" > frontend/.env.production
       
       - name: Deploy on EC2 via SSH
         uses: appleboy/ssh-action@v1.0.3
