@@ -56,5 +56,12 @@ jobs:
             echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
             echo "FRONTEND_URL=${{ secrets.FRONTEND_URL }}" >> .env
 
+            # ---- LOGIN NO ECR (IMPORTANTE!) ----
+            aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin ${{ steps.vars.outputs.ECR_REGISTRY }}
+
+            # ---- PUXAR IMAGENS ----
             docker-compose -f docker-compose.prod.yml pull
+            
+            # ---- SUBIR CONTAINERS ----
             docker-compose -f docker-compose.prod.yml up -d
+            
