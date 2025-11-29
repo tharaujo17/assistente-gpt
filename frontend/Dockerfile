@@ -1,5 +1,4 @@
 # Stage 1: Builder
-# Usamos Node alpine (versão leve) para construir o projeto
 FROM node:20 AS builder
 
 WORKDIR /app

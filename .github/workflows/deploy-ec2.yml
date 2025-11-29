@@ -20,6 +20,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-2
 
+
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
@@ -41,6 +42,10 @@ jobs:
           docker push ${{ steps.vars.outputs.BACKEND_IMAGE }}
           docker push ${{ steps.vars.outputs.FRONTEND_IMAGE }}
 
+      - name: Create frontend env file
+        run: |
+          echo "VITE_API_URL=http://${{ secrets.EC2_HOST }}:8000" > frontend/.env.production
+      
       - name: Deploy on EC2 via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -53,9 +58,7 @@ jobs:
             echo "ECR_REGISTRY=${{ steps.vars.outputs.ECR_REGISTRY }}" > .env
             echo "ECR_REPOSITORY_BACKEND=assistente-gpt-backend" >> .env
             echo "ECR_REPOSITORY_FRONTEND=assistente-gpt-frontend" >> .env
-            echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
-            
-            echo "VITE_API_URL=http://${{ secrets.EC2_HOST }}:8000" >> .env
+            echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env            
             echo "FRONTEND_URL=${{ secrets.FRONTEND_URL }}" >> .env
 
             # ---- LOGIN NO ECR ----
