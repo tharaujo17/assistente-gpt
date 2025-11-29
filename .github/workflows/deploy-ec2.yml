@@ -58,12 +58,14 @@ jobs:
             echo "VITE_API_URL=http://${{ secrets.EC2_HOST }}:8000" >> .env
             echo "FRONTEND_URL=${{ secrets.FRONTEND_URL }}" >> .env
 
-            # ---- LOGIN NO ECR (IMPORTANTE!) ----
+            # ---- LOGIN NO ECR ----
             aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin ${{ steps.vars.outputs.ECR_REGISTRY }}
 
             # ---- PUXAR IMAGENS ----
             docker-compose -f docker-compose.prod.yml pull
-            
-            # ---- SUBIR CONTAINERS ----
-            docker-compose -f docker-compose.prod.yml up -d
-            
+
+            # ---- PARAR E REMOVER ANTIGOS (necessário!) ----
+            docker-compose -f docker-compose.prod.yml down || true
+
+            # ---- SUBIR NOVOS CONTAINERS ----
+            docker-compose -f docker-compose.prod.yml up -d --remove-orphans
