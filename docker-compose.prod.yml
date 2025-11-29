@@ -11,7 +11,7 @@ services:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       # No EC2 simples, o front está no mesmo IP público
       - FRONTEND_URL=${FRONTEND_URL}
-    web:
+  web:
     # Substitua pelo URI do seu repositório ECR do frontend
     image: ${ECR_REGISTRY}/${ECR_REPOSITORY_FRONTEND}:latest
     container_name: assistente-gpt-frontend
