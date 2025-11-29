@@ -55,7 +55,7 @@ jobs:
             echo "ECR_REPOSITORY_FRONTEND=assistente-gpt-frontend" >> .env
             echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
             
-            echo "VITE_API_URL=http://${{ secrets.EC2_HOST }}:8000" >> .env.prod
+            echo "VITE_API_URL=http://${{ secrets.EC2_HOST }}:8000" >> .env
             echo "FRONTEND_URL=${{ secrets.FRONTEND_URL }}" >> .env
 
             # ---- LOGIN NO ECR (IMPORTANTE!) ----
