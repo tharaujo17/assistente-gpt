@@ -1,11 +1,21 @@
 services:
+  # Serviço Backend (Python/FastAPI) ---
   api:
-    build: .
-
-    image: assistente-gpt
-
+    build: ./backend
+    container_name: assistente-gpt-backend
     ports:
       - "8000:8000"
-
     env_file:
-      - ./.env
+      - ./backend/.env
+    environment:
+      # Avisa ao backend que o frontend rodará nesta porta (para o CORS)
+      - FRONTEND_URL=http://localhost:5173
+
+  # Serviço Frontend (React/Nginx) ---
+  web:
+    build: ./frontend
+    container_name: assistente-gpt-frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - api
