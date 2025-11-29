@@ -75,7 +75,7 @@ jobs:
           envs: ECR_REGISTRY,ECR_REPOSITORY_BACKEND,ECR_REPOSITORY_FRONTEND,GEMINI_API_KEY
           script: |
             # 1. Login no ECR (usando a role da máquina ou as chaves configuradas)
-            aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ECR_REGISTRY
+            aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin $ECR_REGISTRY
             
             # 2. Vai para a pasta
             cd /home/ubuntu/app
