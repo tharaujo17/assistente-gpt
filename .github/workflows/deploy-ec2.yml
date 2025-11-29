@@ -10,39 +10,36 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Checkout do repositório
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v2
+      # Login no AWS (IAM User com permissions ECR + EC2)
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-2
 
+      # Login no ECR
       - name: Login to Amazon ECR
-        id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Set image tags
-        id: vars
+      # Criar imagens & enviar para ECR
+      - name: Build & push backend image
         run: |
-          echo "ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}" >> $GITHUB_OUTPUT
-          echo "BACKEND_IMAGE=${{ steps.login-ecr.outputs.registry }}/assistente-gpt-backend:latest" >> $GITHUB_OUTPUT
-          echo "FRONTEND_IMAGE=${{ steps.login-ecr.outputs.registry }}/assistente-gpt-frontend:latest" >> $GITHUB_OUTPUT
+          docker build -t ${{ secrets.ECR_REGISTRY }}/${{ secrets.ECR_REPOSITORY_BACKEND }}:latest ./backend
+          docker push ${{ secrets.ECR_REGISTRY }}/${{ secrets.ECR_REPOSITORY_BACKEND }}:latest
 
-      - name: Build Docker images
+      - name: Build & push frontend image
         run: |
-          docker build -t ${{ steps.vars.outputs.BACKEND_IMAGE }} ./backend
-          docker build -t ${{ steps.vars.outputs.FRONTEND_IMAGE }} ./frontend
+          docker build -t ${{ secrets.ECR_REGISTRY }}/${{ secrets.ECR_REPOSITORY_FRONTEND }}:latest ./frontend
+          docker push ${{ secrets.ECR_REGISTRY }}/${{ secrets.ECR_REPOSITORY_FRONTEND }}:latest
 
-      - name: Push Docker images
-        run: |
-          docker push ${{ steps.vars.outputs.BACKEND_IMAGE }}
-          docker push ${{ steps.vars.outputs.FRONTEND_IMAGE }}
-
-      - name: Deploy on EC2 via SSH
-        uses: appleboy/ssh-action@v1.0.3
+      # Conectar no EC2 via SSH
+      - name: Deploy on EC2
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
@@ -50,18 +47,17 @@ jobs:
           script: |
             cd /home/ubuntu/app
 
-            echo "ECR_REGISTRY=${{ steps.vars.outputs.ECR_REGISTRY }}" > .env
-            echo "ECR_REPOSITORY_BACKEND=assistente-gpt-backend" >> .env
-            echo "ECR_REPOSITORY_FRONTEND=assistente-gpt-frontend" >> .env
-            echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
-            echo "FRONTEND_URL=${{ secrets.FRONTEND_URL }}" >> .env
+            # Exporta as variáveis de ambiente (seguras)
+            echo "ECR_REGISTRY=${{ secrets.ECR_REGISTRY }}" > .env.prod
+            echo "ECR_REPOSITORY_BACKEND=${{ secrets.ECR_REPOSITORY_BACKEND }}" >> .env.prod
+            echo "ECR_REPOSITORY_FRONTEND=${{ secrets.ECR_REPOSITORY_FRONTEND }}" >> .env.prod
 
-            # ---- LOGIN NO ECR (IMPORTANTE!) ----
-            aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin ${{ steps.vars.outputs.ECR_REGISTRY }}
+            echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env.prod
 
-            # ---- PUXAR IMAGENS ----
-            docker-compose -f docker-compose.prod.yml pull
-            
-            # ---- SUBIR CONTAINERS ----
-            docker-compose -f docker-compose.prod.yml up -d
-            
+            # URLs do servidor
+            echo "VITE_API_URL=http://${{ secrets.EC2_HOST }}:8000" >> .env.prod
+            echo "FRONTEND_URL=http://${{ secrets.EC2_HOST }}" >> .env.prod
+
+            # Atualiza o compose e sobe os containers
+            docker compose -f docker-compose.prod.yml --env-file .env.prod pull
+            docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
