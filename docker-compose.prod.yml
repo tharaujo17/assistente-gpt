@@ -1,99 +1,22 @@
-name: Deploy to EC2
-
-on:
-  push:
-    branches:
-      - main
-
-env:
-  AWS_REGION: us-east-1
-  ECR_REPOSITORY_BACKEND: iscoolgpt-backend
-  ECR_REPOSITORY_FRONTEND: iscoolgpt-frontend
-  # IP PÚBLICO da sua instância EC2 (ou use Elastic IP para não mudar)
-  EC2_HOST: ${{ secrets.EC2_HOST }} 
-  EC2_USER: ubuntu
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1
-
-      # --- BUILD & PUSH BACKEND ---
-      - name: Build & Push Backend
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY_BACKEND:latest ./backend
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY_BACKEND:latest
-
-      # --- BUILD & PUSH FRONTEND ---
-      - name: Build & Push Frontend
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          # Importante: Injeta o IP da EC2 para o React saber onde bater
-          VITE_API_URL: http://${{ secrets.EC2_HOST }}:8000
-        run: |
-          docker build \
-            --build-arg VITE_API_URL=$VITE_API_URL \
-            -t $ECR_REGISTRY/$ECR_REPOSITORY_FRONTEND:latest ./frontend
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY_FRONTEND:latest
-
-      # --- DEPLOY NA EC2 VIA SSH ---
-      - name: Deploy to EC2
-        uses: appleboy/scp-action@master
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ env.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          source: "docker-compose.prod.yml"
-          target: "/home/ubuntu/app"
-
-      - name: Execute Remote SSH Commands
-        uses: appleboy/ssh-action@master
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          # Define a URL do Frontend baseada no IP da EC2 para configurar o CORS no Backend
-          FRONTEND_URL: http://${{ secrets.EC2_HOST }}
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ env.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          # Passamos as variáveis de ambiente do GitHub para dentro do SSH
-          envs: ECR_REGISTRY,ECR_REPOSITORY_BACKEND,ECR_REPOSITORY_FRONTEND,GEMINI_API_KEY,FRONTEND_URL
-          script: |
-            # 1. Login no ECR (usando a role da máquina ou as chaves configuradas)
-            aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ECR_REGISTRY
-            
-            # 2. Vai para a pasta
-            cd /home/ubuntu/app
-            
-            # 3. Atualiza as imagens (Pull)
-            # Exportamos as vars para o docker-compose enxergar
-            export ECR_REGISTRY=$ECR_REGISTRY
-            export ECR_REPOSITORY_BACKEND=$ECR_REPOSITORY_BACKEND
-            export ECR_REPOSITORY_FRONTEND=$ECR_REPOSITORY_FRONTEND
-            export GEMINI_API_KEY=$GEMINI_API_KEY
-            export FRONTEND_URL=$FRONTEND_URL
-            
-            docker-compose -f docker-compose.prod.yml pull
-            
-            # 4. Reinicia os containers
-            docker-compose -f docker-compose.prod.yml up -d --remove-orphans
-            
-            # 5. Limpeza de imagens antigas para não lotar o disco
-            docker image prune -f
+services:
+  api:
+    # Substitua pelo URI do seu repositório ECR do backend
+    image: ${ECR_REGISTRY}/${ECR_REPOSITORY_BACKEND}:latest
+    container_name: assistente-gpt-backend
+    restart: always
+    ports:
+      - "8000:8000"
+    # Variáveis de ambiente
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      # No EC2 simples, o front está no mesmo IP público
+      - FRONTEND_URL=${FRONTEND_URL}
+    web:
+    # Substitua pelo URI do seu repositório ECR do frontend
+    image: ${ECR_REGISTRY}/${ECR_REPOSITORY_FRONTEND}:latest
+    container_name: assistente-gpt-frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - api
