@@ -5,94 +5,56 @@ on:
     branches:
       - main
 
-env:
-  AWS_REGION: us-east-2
-  ECR_REPOSITORY_BACKEND: assistente-gpt-backend
-  ECR_REPOSITORY_FRONTEND: assistente-gpt-frontend
-  # IP PÚBLICO da sua instância EC2 (ou use Elastic IP para não mudar)
-  EC2_HOST: ${{ secrets.EC2_HOST }} 
-  EC2_USER: ubuntu
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+    steps:
+      - name: Checkout repository
+      - uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: us-east-2
 
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      # --- BUILD & PUSH BACKEND ---
-      - name: Build & Push Backend
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+      - name: Set image tags
+        id: vars
         run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY_BACKEND:latest ./backend
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY_BACKEND:latest
+          echo "ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}" >> $GITHUB_OUTPUT
+          echo "BACKEND_IMAGE=${{ steps.login-ecr.outputs.registry }}/assistente-gpt-backend:latest" >> $GITHUB_OUTPUT
+          echo "FRONTEND_IMAGE=${{ steps.login-ecr.outputs.registry }}/assistente-gpt-frontend:latest" >> $GITHUB_OUTPUT
 
-      # --- BUILD & PUSH FRONTEND ---
-      - name: Build & Push Frontend
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          # Importante: Injeta o IP da EC2 para o React saber onde bater
-          VITE_API_URL: http://${{ secrets.EC2_HOST }}:8000
+      - name: Build Docker images
         run: |
-          docker build \
-            --build-arg VITE_API_URL=$VITE_API_URL \
-            -t $ECR_REGISTRY/$ECR_REPOSITORY_FRONTEND:latest ./frontend
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY_FRONTEND:latest
+          docker build -t ${{ steps.vars.outputs.BACKEND_IMAGE }} ./backend
+          docker build -t ${{ steps.vars.outputs.FRONTEND_IMAGE }} ./frontend
 
-      # --- DEPLOY NA EC2 VIA SSH ---
-      - name: Deploy to EC2
-        uses: appleboy/scp-action@master
+      - name: Push Docker images
+        run: |
+          docker push ${{ steps.vars.outputs.BACKEND_IMAGE }}
+          docker push ${{ steps.vars.outputs.FRONTEND_IMAGE }}
+
+      - name: Deploy on EC2 via SSH
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ${{ env.EC2_USER }}
+          username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: "docker-compose.prod.yml"
-          target: "/home/ubuntu/app"
-
-      - name: Execute Remote SSH Commands
-        uses: appleboy/ssh-action@master
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          FRONTEND_URL: http://${{ secrets.EC2_HOST }}
-          AWS_REGION: ${{ env.AWS_REGION }}
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ env.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          envs: ECR_REGISTRY,ECR_REPOSITORY_BACKEND,ECR_REPOSITORY_FRONTEND,GEMINI_API_KEY,FRONTEND_URL,AWS_REGION
           script: |
-            # 1. Login no ECR usando a região dinâmica
-            aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
-            
-            # 2. Vai para a pasta
             cd /home/ubuntu/app
-            
-            # 3. Exporta as variáveis para o ambiente do Linux remoto
-            export ECR_REGISTRY=$ECR_REGISTRY
-            export ECR_REPOSITORY_BACKEND=$ECR_REPOSITORY_BACKEND
-            export ECR_REPOSITORY_FRONTEND=$ECR_REPOSITORY_FRONTEND
-            export GEMINI_API_KEY=$GEMINI_API_KEY
-            export FRONTEND_URL=$FRONTEND_URL
-            
-            # 4. Atualiza as imagens (Pull)
+
+            echo "ECR_REGISTRY=${{ steps.vars.outputs.ECR_REGISTRY }}" > .env
+            echo "ECR_REPOSITORY_BACKEND=assistente-gpt-backend" >> .env
+            echo "ECR_REPOSITORY_FRONTEND=assistente-gpt-frontend" >> .env
+            echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> .env
+            echo "FRONTEND_URL=${{ secrets.FRONTEND_URL }}" >> .env
+
             docker-compose -f docker-compose.prod.yml pull
-            
-            # 5. Reinicia os containers
-            docker-compose -f docker-compose.prod.yml up -d --remove-orphans
-            
-            # 6. Limpeza de imagens antigas
-            docker image prune -f
+            docker-compose -f docker-compose.prod.yml up -d
