@@ -68,8 +68,11 @@ jobs:
             # ---- PUXAR IMAGENS ----
             docker-compose -f docker-compose.prod.yml pull
 
-            # ---- PARAR E REMOVER ANTIGOS (necessário!) ----
+            # ---- PARAR E REMOVER ANTIGOS ----
             docker-compose -f docker-compose.prod.yml down || true
 
             # ---- SUBIR NOVOS CONTAINERS ----
             docker-compose -f docker-compose.prod.yml up -d --remove-orphans
+
+            # ---- REINICIAR CLOUDWATCH AGENT ----
+            sudo systemctl restart amazon-cloudwatch-agent

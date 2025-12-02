@@ -38,7 +38,7 @@ const ChatInput = ({ onSend, loading }) => {
         </button>
       </form>
       <p className="text-center text-xs text-slate-600 mt-2">
-        Powered by Gemini 1.5 Flash • Cloud Computing Project
+        Powered by Gemini 2.5 Flash • Cloud Computing Project
       </p>
     </div>
   );
