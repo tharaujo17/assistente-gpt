@@ -61,6 +61,11 @@ app.add_middleware(
 async def health_check():
     return {"status": "ok", "message": "Rodando a API do AssistenteGPT"}
 
+@app.get("/teste-log")
+def test_log():
+    print("TESTANDO LOGS NO CLOUDWATCH!!!")
+    return {"status": "ok"}
+
 @app.post("/api/v1/assistente", response_model=AssistenteResponse)
 async def gerar_resposta_assistente(request: AssistenteRequest):
     try:
