@@ -16,7 +16,6 @@ class AssistenteResponse(BaseModel):
 
     resposta: str
 
-
 api_key = os.getenv("GEMINI_API_KEY")
 
 if not api_key:
@@ -31,21 +30,17 @@ app = FastAPI(
 
 origins = [
     "http://localhost:5173",  # Porta padrão do Vite
-    "http://localhost:3000",  # Porta padrão do React CRA
+    "http://localhost:3000",
     "http://127.0.0.1:5173",
 ]
 
-# --- ESTRATÉGIA PARA AWS / PRODUÇÃO ---
-# Lê a URL do frontend da variável de ambiente.
-# Na AWS, você configurará a variável FRONTEND_URL com o link do seu site (S3/CloudFront)
 aws_frontend_url = os.getenv("FRONTEND_URL")
 
 if aws_frontend_url:
     origins.append(aws_frontend_url)
     print(f"Adicionando origem permitida da AWS: {aws_frontend_url}")
 else:
-    # Fallback inseguro apenas para garantir que funcione se esquecerem a config
-    # Em um projeto real "sério", você removeria esta linha abaixo.
+    # Fallback
     origins.append("*")
 
 app.add_middleware(
@@ -69,7 +64,6 @@ def test_log():
 @app.post("/api/v1/assistente", response_model=AssistenteResponse)
 async def gerar_resposta_assistente(request: AssistenteRequest):
     try:
-        # Verifica se a chave existe antes de chamar
         if not api_key:
             raise HTTPException(
                 status_code=500, detail="Chave de API não configurada no servidor."

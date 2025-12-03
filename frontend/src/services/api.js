@@ -1,5 +1,4 @@
 export const fetchRespostaAssistente = async (pergunta) => {
-  // Tenta pegar a URL do backend via variável de ambiente do Vite ou usa localhost como fallback
   const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
   
   const response = await fetch(`${baseUrl}/api/v1/assistente`, {

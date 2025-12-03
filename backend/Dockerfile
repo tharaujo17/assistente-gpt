@@ -25,13 +25,11 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# Instala certificados SSL (necessários para chamadas HTTPS)
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
-# Copia dependências e app
 COPY --from=builder /install /usr/local/
 COPY main.py .
 

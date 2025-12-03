@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Send, Bot, User, Loader2, Sparkles, AlertCircle } from "lucide-react";
+import { Bot, Loader2, AlertCircle } from "lucide-react";
 import Header from "./components/Header";
 import ChatInput from "./components/ChatInput";
 import ChatMessage from "./components/ChatMessage";
@@ -25,7 +25,6 @@ export default function App() {
   const handleSend = async (textoPergunta) => {
     setErro(null);
     setLoading(true);
-    // Adiciona pergunta do usuário imediatamente (Otimistic Update)
     setHistorico((prev) => [...prev, { tipo: "user", texto: textoPergunta }]);
 
     try {
@@ -40,17 +39,10 @@ export default function App() {
   };
 
   return (
-    // CORREÇÃO:
-    // 1. 'fixed inset-0': Fixa o container na tela inteira, impedindo rolagem do body.
-    // 2. 'flex items-center justify-center': Garante centralização vertical e horizontal absoluta.
     <div className="fixed inset-0 bg-slate-900 text-slate-100 font-sans flex items-center justify-center">
-      {/* 3. 'w-full md:w-[90%] md:max-w-5xl': Responsividade da largura.
-        4. 'h-full md:h-[85vh]': No mobile ocupa tudo, no desktop ocupa 85% da altura e flutua no meio.
-      */}
       <div className="w-full md:w-[90%] max-w-5xl bg-slate-800 md:rounded-2xl shadow-2xl overflow-hidden border-0 md:border border-slate-700 flex flex-col h-full md:h-[85vh]">
         <Header />
 
-        {/* MUDANÇA 3: flex-1, overflow-y-auto e min-h-0 garantem que SÓ ISSO role */}
         <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar scroll-smooth min-h-0">
           {historico.map((msg, index) => (
             <ChatMessage key={index} tipo={msg.tipo} texto={msg.texto} />

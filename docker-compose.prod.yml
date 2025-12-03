@@ -1,6 +1,5 @@
 services:
   api:
-    # Substitua pelo URI do seu repositório ECR do backend
     image: ${ECR_REGISTRY}/${ECR_REPOSITORY_BACKEND}:latest
     container_name: assistente-gpt-backend
     restart: always
@@ -9,10 +8,8 @@ services:
     # Variáveis de ambiente
     environment:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
-      # No EC2 simples, o front está no mesmo IP público
       - FRONTEND_URL=${FRONTEND_URL}
   web:
-    # Substitua pelo URI do seu repositório ECR do frontend
     image: ${ECR_REGISTRY}/${ECR_REPOSITORY_FRONTEND}:latest
     container_name: assistente-gpt-frontend
     environment:
